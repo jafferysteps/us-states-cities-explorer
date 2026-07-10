@@ -574,6 +574,47 @@
             color: var(--text-secondary);
             white-space: pre-wrap;
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 600px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+                padding: 1.5rem 1rem !important;
+            }
+            .stats-badge {
+                width: 100%;
+                justify-content: center;
+            }
+            .detail-header-card {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1.5rem !important;
+            }
+            .actions-group {
+                width: 100%;
+                flex-direction: column;
+            }
+            .actions-group button {
+                width: 100%;
+                justify-content: center;
+            }
+            .cities-grid {
+                grid-template-columns: 1fr !important;
+                max-height: 400px;
+            }
+            .state-detail-title h2 {
+                font-size: 1.8rem !important;
+            }
+            .state-meta {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .separator {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -625,7 +666,7 @@
                     <div class="state-meta">
                         <span id="selected-state-count">0 Cities</span>
                         <div class="separator"></div>
-                        <span>United States Territory</span>
+                        <span id="selected-state-timezone">United States Territory</span>
                     </div>
                 </div>
                 <div class="actions-group">
@@ -683,6 +724,60 @@
     </div>
 
     <script>
+        // Timezones data
+        const TIMEZONES = {
+            "Alabama": "Central Time (CT)",
+            "Alaska": "Alaska Time (AKT)",
+            "Arizona": "Mountain/Pacific Time",
+            "Arkansas": "Central Time (CT)",
+            "California": "Pacific Time (PT)",
+            "Colorado": "Mountain Time (MT)",
+            "Connecticut": "Eastern Time (ET)",
+            "Delaware": "Eastern Time (ET)",
+            "Florida": "Eastern/Central Time",
+            "Georgia": "Eastern Time (ET)",
+            "Hawaii": "Hawaii Time (HT)",
+            "Idaho": "Mountain/Pacific Time",
+            "Illinois": "Central Time (CT)",
+            "Indiana": "Eastern/Central Time",
+            "Iowa": "Central Time (CT)",
+            "Kansas": "Central/Mountain Time",
+            "Kentucky": "Eastern/Central Time",
+            "Louisiana": "Central Time (CT)",
+            "Maine": "Eastern Time (ET)",
+            "Maryland": "Eastern Time (ET)",
+            "Massachusetts": "Eastern Time (ET)",
+            "Michigan": "Eastern/Central Time",
+            "Minnesota": "Central Time (CT)",
+            "Mississippi": "Central Time (CT)",
+            "Missouri": "Central Time (CT)",
+            "Montana": "Mountain Time (MT)",
+            "Nebraska": "Central/Mountain Time",
+            "Nevada": "Pacific Time (PT)",
+            "New Hampshire": "Eastern Time (ET)",
+            "New Jersey": "Eastern Time (ET)",
+            "New Mexico": "Mountain Time (MT)",
+            "New York": "Eastern Time (ET)",
+            "North Carolina": "Eastern Time (ET)",
+            "North Dakota": "Central/Mountain Time",
+            "Ohio": "Eastern Time (ET)",
+            "Oklahoma": "Central Time (CT)",
+            "Oregon": "Pacific/Mountain Time",
+            "Pennsylvania": "Eastern Time (ET)",
+            "Rhode Island": "Eastern Time (ET)",
+            "South Carolina": "Eastern Time (ET)",
+            "South Dakota": "Central/Mountain Time",
+            "Tennessee": "Eastern/Central Time",
+            "Texas": "Central/Mountain Time",
+            "Utah": "Mountain Time (MT)",
+            "Vermont": "Eastern Time (ET)",
+            "Virginia": "Eastern Time (ET)",
+            "Washington": "Pacific Time (PT)",
+            "West Virginia": "Eastern Time (ET)",
+            "Wisconsin": "Central Time (CT)",
+            "Wyoming": "Mountain Time (MT)"
+        };
+
         // State management
         let usData = {};
         let activeState = "";
@@ -766,8 +861,12 @@
                 const item = document.createElement("div");
                 item.className = `state-item ${state === activeState ? 'active' : ''}`;
                 item.setAttribute("data-state", state);
+                const tz = TIMEZONES[state] || "US Territory";
                 item.innerHTML = `
-                    <span class="state-name">${state}</span>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span class="state-name">${state}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500;">${tz}</span>
+                    </div>
                     <span class="city-count">${usData[state].length}</span>
                 `;
                 item.addEventListener("click", () => selectState(state));
@@ -792,6 +891,10 @@
             selectedStateName.textContent = stateName;
             const count = usData[stateName].length;
             selectedStateCount.textContent = `${count.toLocaleString()} ${count === 1 ? 'City' : 'Cities'}`;
+            
+            // Inject Timezone
+            const tz = TIMEZONES[stateName] || "United States Territory";
+            document.getElementById("selected-state-timezone").textContent = tz;
 
             // Render cities
             renderCities(usData[stateName]);
