@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US States & Cities Explorer</title>
+    <meta name="description" content="An interactive, high-performance database viewer for all states, territories, and cities in the United States. Search, filter, and export data instantly.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons for premium visual style -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- States & Cities Dataset (works locally on file:// and HTTP) -->
+    <script src="states_cities.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #6366f1; /* Indigo */
+            --accent-secondary: #06b6d4; /* Cyan */
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+            --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        header {
+            padding: 2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            background: var(--accent-gradient);
+            padding: 0.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .stats-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stats-badge span {
+            color: var(--accent-secondary);
+            font-weight: 700;
+        }
+
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2.5rem 4rem;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+                padding: 1.5rem;
+            }
+            header {
+                padding: 1rem 1.5rem;
+            }
+        }
+
+        /* Left Panel - State List & Filters */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .search-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-premium);
+        }
+
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            width: 18px;
+            height: 18px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.8rem 1rem 0.8rem 2.8rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: var(--transition-smooth);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.6rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .filter-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        .state-list-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-premium);
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 270px);
+        }
+
+        .state-list-header {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .state-list {
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding-right: 0.25rem;
+        }
+
+        .state-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .state-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(3px);
+        }
+
+        .state-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.3);
+            color: white;
+        }
+
+        .state-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .city-count {
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .state-item.active .city-count {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        /* Right Panel - Cities Grid */
+        .cities-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .detail-header-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-premium);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            background-image: radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+        }
+
+        .state-detail-title h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .state-meta {
+            display: flex;
+            gap: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            align-items: center;
+        }
+
+        .separator {
+            width: 4px;
+            height: 4px;
+            background: var(--text-muted);
+            border-radius: 50%;
+        }
+
+        .actions-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .action-btn.primary {
+            background: var(--accent-gradient);
+            border: none;
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .action-btn.primary:hover {
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+        }
+
+        .cities-grid-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-premium);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cities-grid-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .grid-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .cities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+            overflow-y: auto;
+            max-height: 550px;
+            padding-right: 0.5rem;
+        }
+
+        .city-card {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.9rem 1.2rem;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .city-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(99, 102, 241, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .city-card-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            text-transform: capitalize;
+        }
+
+        .city-card-icon {
+            color: var(--text-muted);
+            opacity: 0;
+            transition: var(--transition-smooth);
+            width: 14px;
+            height: 14px;
+        }
+
+        .city-card:hover .city-card-icon {
+            opacity: 1;
+            color: var(--accent-secondary);
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(17, 24, 39, 0.9);
+            border: 1px solid var(--accent-secondary);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow-premium);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(150%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        .toast-icon {
+            color: var(--accent-secondary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+            flex-grow: 1;
+        }
+
+        .empty-state i {
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state h3 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        /* Modal styling */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition-smooth);
+        }
+
+        .modal.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            width: 90%;
+            max-width: 600px;
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: var(--shadow-premium);
+            transform: scale(0.9);
+            transition: var(--transition-smooth);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .modal.open .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .export-preview {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            max-height: 250px;
+            overflow-y: auto;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">
+                <i data-lucide="map-pin"></i>
+            </div>
+            <div>
+                <h1>US States & Cities Explorer</h1>
+            </div>
+        </div>
+        <div class="stats-badge">
+            <i data-lucide="database"></i> Total Database: <span id="total-states">0</span> States & <span id="total-cities">0</span> Cities
+        </div>
+    </header>
+
+    <main>
+        <!-- Left Column: Search & States -->
+        <section class="control-panel">
+            <div class="search-card">
+                <div class="search-wrapper">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="search-input" class="search-input" placeholder="Search state or city...">
+                </div>
+                <div class="filter-options">
+                    <button class="filter-btn active" id="btn-all">All States</button>
+                    <button class="filter-btn" id="btn-popular">States Only</button>
+                </div>
+            </div>
+
+            <div class="state-list-card">
+                <div class="state-list-header">
+                    <span>States / Territories</span>
+                    <span id="filtered-count">0</span>
+                </div>
+                <div class="state-list" id="state-list">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Detail & Cities -->
+        <section class="cities-panel">
+            <div class="detail-header-card" id="detail-header">
+                <div class="state-detail-title">
+                    <h2 id="selected-state-name">Select a State</h2>
+                    <div class="state-meta">
+                        <span id="selected-state-count">0 Cities</span>
+                        <div class="separator"></div>
+                        <span>United States Territory</span>
+                    </div>
+                </div>
+                <div class="actions-group">
+                    <button class="action-btn" id="btn-copy">
+                        <i data-lucide="copy"></i> Copy List
+                    </button>
+                    <button class="action-btn primary" id="btn-export">
+                        <i data-lucide="download"></i> Export Data
+                    </button>
+                </div>
+            </div>
+
+            <div class="cities-grid-card">
+                <div class="cities-grid-header">
+                    <div class="grid-title" id="grid-title">Cities</div>
+                </div>
+                <div class="cities-grid" id="cities-grid">
+                    <div class="empty-state">
+                        <i data-lucide="map" size="48"></i>
+                        <h3>No State Selected</h3>
+                        <p>Click on any state in the list to view its complete list of cities.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Export Modal -->
+    <div class="modal" id="export-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Export State Data</div>
+                <button class="close-btn" id="modal-close"><i data-lucide="x"></i></button>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Select the format to download the data for <strong id="modal-state-name">State</strong>.</p>
+            <div class="filter-options">
+                <button class="filter-btn active" id="export-json">JSON</button>
+                <button class="filter-btn" id="export-csv">CSV</button>
+                <button class="filter-btn" id="export-txt">Plain Text</button>
+            </div>
+            <div class="export-preview" id="export-preview">
+                <!-- Preview content -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button class="action-btn" id="modal-cancel">Cancel</button>
+                <button class="action-btn primary" id="modal-download">Download File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast message -->
+    <div class="toast" id="toast">
+        <i data-lucide="check-circle" class="toast-icon"></i>
+        <span id="toast-message">Copied to clipboard!</span>
+    </div>
+
+    <script>
+        // State management
+        let usData = {};
+        let activeState = "";
+        let exportFormat = "JSON";
+
+        // DOM elements
+        const stateListContainer = document.getElementById("state-list");
+        const citiesGrid = document.getElementById("cities-grid");
+        const searchInput = document.getElementById("search-input");
+        const selectedStateName = document.getElementById("selected-state-name");
+        const selectedStateCount = document.getElementById("selected-state-count");
+        const totalStatesEl = document.getElementById("total-states");
+        const totalCitiesEl = document.getElementById("total-cities");
+        const filteredCountEl = document.getElementById("filtered-count");
+        const btnCopy = document.getElementById("btn-copy");
+        const btnExport = document.getElementById("btn-export");
+        const toast = document.getElementById("toast");
+        const toastMessage = document.getElementById("toast-message");
+
+        // Modal elements
+        const exportModal = document.getElementById("export-modal");
+        const modalClose = document.getElementById("modal-close");
+        const modalCancel = document.getElementById("modal-cancel");
+        const modalStateName = document.getElementById("modal-state-name");
+        const exportPreview = document.getElementById("export-preview");
+        const modalDownload = document.getElementById("modal-download");
+        const exportJsonBtn = document.getElementById("export-json");
+        const exportCsvBtn = document.getElementById("export-csv");
+        const exportTxtBtn = document.getElementById("export-txt");
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Show Toast
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toast.classList.add("show");
+            setTimeout(() => {
+                toast.classList.remove("show");
+            }, 3000);
+        }
+
+        // Fetch data and build page
+        async function loadData() {
+            try {
+                // If loaded via <script src="states_cities.js"> (works on file:// protocol or offline)
+                if (typeof US_DATA !== 'undefined') {
+                    usData = US_DATA;
+                } else {
+                    const response = await fetch("states_cities.json");
+                    usData = await response.json();
+                }
+                
+                // Calculate Stats
+                const states = Object.keys(usData).sort();
+                let totalCities = 0;
+                states.forEach(state => {
+                    totalCities += usData[state].length;
+                });
+
+                totalStatesEl.textContent = states.length;
+                totalCitiesEl.textContent = totalCities.toLocaleString();
+                filteredCountEl.textContent = states.length;
+
+                renderStates(states);
+                
+                // Select first state by default
+                if (states.length > 0) {
+                    selectState(states[0]);
+                }
+            } catch (err) {
+                console.error("Failed to load states and cities", err);
+                stateListContainer.innerHTML = `<div style="color: red; padding: 1rem;">Failed to load dataset. Please make sure the JSON file exists.</div>`;
+            }
+        }
+
+        // Render state list items
+        function renderStates(statesList) {
+            stateListContainer.innerHTML = "";
+            statesList.forEach(state => {
+                const item = document.createElement("div");
+                item.className = `state-item ${state === activeState ? 'active' : ''}`;
+                item.setAttribute("data-state", state);
+                item.innerHTML = `
+                    <span class="state-name">${state}</span>
+                    <span class="city-count">${usData[state].length}</span>
+                `;
+                item.addEventListener("click", () => selectState(state));
+                stateListContainer.appendChild(item);
+            });
+        }
+
+        // Handle state selection
+        function selectState(stateName) {
+            activeState = stateName;
+            
+            // Update active styling
+            document.querySelectorAll(".state-item").forEach(item => {
+                if (item.getAttribute("data-state") === stateName) {
+                    item.classList.add("active");
+                } else {
+                    item.classList.remove("active");
+                }
+            });
+
+            // Update details header
+            selectedStateName.textContent = stateName;
+            const count = usData[stateName].length;
+            selectedStateCount.textContent = `${count.toLocaleString()} ${count === 1 ? 'City' : 'Cities'}`;
+
+            // Render cities
+            renderCities(usData[stateName]);
+        }
+
+        // Render cities list
+        function renderCities(cities) {
+            citiesGrid.innerHTML = "";
+            
+            if (!cities || cities.length === 0) {
+                citiesGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i data-lucide="map-pin-off" size="48"></i>
+                        <h3>No Cities Found</h3>
+                        <p>There are no cities recorded for this location.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            cities.forEach(city => {
+                const card = document.createElement("div");
+                card.className = "city-card";
+                card.innerHTML = `
+                    <span class="city-card-name">${city.toLowerCase()}</span>
+                    <i data-lucide="copy" class="city-card-icon"></i>
+                `;
+                
+                // Copy individual city on click
+                card.addEventListener("click", (e) => {
+                    navigator.clipboard.writeText(city);
+                    showToast(`Copied "${city}" to clipboard`);
+                });
+
+                citiesGrid.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Search logic
+        searchInput.addEventListener("input", (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            const states = Object.keys(usData).sort();
+            
+            if (!query) {
+                renderStates(states);
+                filteredCountEl.textContent = states.length;
+                if (activeState) selectState(activeState);
+                return;
+            }
+
+            // Filter states that match, or contain cities that match
+            const filteredStates = states.filter(state => {
+                if (state.toLowerCase().includes(query)) return true;
+                return usData[state].some(city => city.toLowerCase().includes(query));
+            });
+
+            renderStates(filteredStates);
+            filteredCountEl.textContent = filteredStates.length;
+
+            if (filteredStates.length > 0) {
+                // If currently active state is not in filtered, select the first filtered
+                if (!filteredStates.includes(activeState)) {
+                    selectState(filteredStates[0]);
+                } else {
+                    selectState(activeState);
+                }
+            } else {
+                citiesGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i data-lucide="search" size="48"></i>
+                        <h3>No Results Found</h3>
+                        <p>No states or cities match your search "${e.target.value}".</p>
+                    </div>
+                `;
+                selectedStateName.textContent = "No Matches";
+                selectedStateCount.textContent = "0 Cities";
+                lucide.createIcons();
+            }
+        });
+
+        // Copy entire list logic
+        btnCopy.addEventListener("click", () => {
+            if (!activeState || !usData[activeState]) return;
+            
+            const cityList = usData[activeState].join("\n");
+            navigator.clipboard.writeText(cityList);
+            showToast(`Copied all ${usData[activeState].length} cities from ${activeState}`);
+        });
+
+        // Modal & Export logic
+        btnExport.addEventListener("click", () => {
+            if (!activeState) return;
+            modalStateName.textContent = activeState;
+            updateExportPreview();
+            exportModal.classList.add("open");
+        });
+
+        function closeModal() {
+            exportModal.classList.remove("open");
+        }
+
+        modalClose.addEventListener("click", closeModal);
+        modalCancel.addEventListener("click", closeModal);
+
+        function updateExportPreview() {
+            if (!activeState || !usData[activeState]) return;
+            
+            const cities = usData[activeState];
+            let previewText = "";
+
+            if (exportFormat === "JSON") {
+                previewText = JSON.stringify({ state: activeState, cities: cities }, null, 2);
+            } else if (exportFormat === "CSV") {
+                previewText = "City,State\n" + cities.map(c => `"${c}", "${activeState}"`).join("\n");
+            } else {
+                previewText = cities.join("\n");
+            }
+
+            // Truncate preview for UI performance
+            if (previewText.length > 1000) {
+                exportPreview.textContent = previewText.substring(0, 1000) + "\n\n... (truncated for preview)";
+            } else {
+                exportPreview.textContent = previewText;
+            }
+        }
+
+        // Format switchers
+        exportJsonBtn.addEventListener("click", () => {
+            exportFormat = "JSON";
+            exportJsonBtn.classList.add("active");
+            exportCsvBtn.classList.remove("active");
+            exportTxtBtn.classList.remove("active");
+            updateExportPreview();
+        });
+
+        exportCsvBtn.addEventListener("click", () => {
+            exportFormat = "CSV";
+            exportJsonBtn.classList.remove("active");
+            exportCsvBtn.classList.add("active");
+            exportTxtBtn.classList.remove("active");
+            updateExportPreview();
+        });
+
+        exportTxtBtn.addEventListener("click", () => {
+            exportFormat = "TXT";
+            exportJsonBtn.classList.remove("active");
+            exportCsvBtn.classList.remove("active");
+            exportTxtBtn.classList.add("active");
+            updateExportPreview();
+        });
+
+        // Download logic
+        modalDownload.addEventListener("click", () => {
+            if (!activeState) return;
+            
+            const cities = usData[activeState];
+            let fileContent = "";
+            let fileName = activeState.toLowerCase().replace(/ /g, "_");
+            let mimeType = "text/plain";
+
+            if (exportFormat === "JSON") {
+                fileContent = JSON.stringify({ state: activeState, cities: cities }, null, 2);
+                fileName += ".json";
+                mimeType = "application/json";
+            } else if (exportFormat === "CSV") {
+                fileContent = "City,State\n" + cities.map(c => `"${c}", "${activeState}"`).join("\n");
+                fileName += ".csv";
+                mimeType = "text/csv";
+            } else {
+                fileContent = cities.join("\n");
+                fileName += ".txt";
+            }
+
+            const blob = new Blob([fileContent], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            closeModal();
+            showToast(`Downloaded ${fileName}`);
+        });
+
+        // Load data on start
+        loadData();
+    </script>
+</body>
+</html>
